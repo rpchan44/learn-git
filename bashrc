@@ -319,11 +319,13 @@ syncforce() {
     esac
 }
 
-
+ghelp() { 
+	githelp | less -R
+}
 # ================================
 # 📖 Colored Git Helper Menu
 # ================================
-ghelp() {
+githelp() {
     echo -e "\n\e[1;32m🌱 Git Helper Commands\e[0m\n"
 
     echo -e "\e[1;32m[ Status / Stage / Commit / Push ]\e[0m"
