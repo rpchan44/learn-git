@@ -283,7 +283,7 @@ ghelp() {
     echo -e "  \e[1;36mgcr\e[0m      → Rebase last 5 commits interactively"
     echo -e "  \e[1;36mgra\e[0m      → Abort rebase"
     echo -e "  \e[1;36mgrc\e[0m      → Continue rebase"
-    echo -e "  \e[1;36mgrebase\e[0m - Rebase current branch onto main (or specified)"
+    echo -e "  \e[1;36mgrebase\e[0m  → Rebase current branch onto main (or specified)"
 
     echo -e "  \e[1;36mgundo\e[0m    → Undo last commit (keep staged)"
     echo -e "  \e[1;36mgundoh\e[0m   → Undo last commit (unstage changes)"
