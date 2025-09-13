@@ -91,6 +91,12 @@ ghelp() {
     echo -e "\n\e[1;32m[ Directory Helper ]\e[0m"
     echo -e "  \e[1;36mcdmenu\e[0m   → Interactive directory selector"
 
+    echo -e "\n\e[1;32m[ Remote / Upstream Helper ]\e[0m"
+    echo -e "  \e[1;36msetremote\e[0m → Add or update a remote URL"
+    echo -e "  \e[1;36mpushup\e[0m    → Push current branch and set upstream"
+    echo -e "  \e[1;36mghcreate\e[0m  → Create GitHub repo and push"
+    echo -e "  \e[1;36mremoteinfo\e[0m → Show remotes and upstream info"
+
     echo -e "\n💡 Tip: Run \e[1;36mghelp\e[0m anytime to recall these shortcuts!\n"
 }
 
@@ -114,10 +120,74 @@ cdmenu() {
         fi
     done
 }
-ghelp
+
 echo "CD to your GIT workspace"
 cd ~/Desktop/GIT/
 cdmenu
+
+# ================================
+# 🌐 Remote Repo Helpers
+# ================================
+setremote() {
+    if [ $# -ne 2 ]; then
+        echo "Usage: setremote <remote_name> <url>"
+        return 1
+    fi
+    local remote_name=$1
+    local url=$2
+
+    if git remote get-url "$remote_name" &>/dev/null; then
+        echo "Updating remote '$remote_name' to $url"
+        git remote set-url "$remote_name" "$url"
+    else
+        echo "Adding new remote '$remote_name' -> $url"
+        git remote add "$remote_name" "$url"
+    fi
+    git remote -v
+}
+
+pushup() {
+    local remote_name=${1:-origin}
+    local branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
+    if [ -z "$branch" ]; then
+        echo "Not on a branch"
+        return 1
+    fi
+    echo "Pushing branch '$branch' to remote '$remote_name'"
+    git push -u "$remote_name" "$branch"
+}
+
+ghcreate() {
+    if ! command -v gh &>/dev/null; then
+        echo "GitHub CLI (gh) not found. Install from https://cli.github.com/"
+        return 1
+    fi
+    local repo_name=$1
+    local visibility=${2:-private}
+    echo "Creating GitHub repo '$repo_name' with visibility '$visibility'"
+    gh repo create "$repo_name" --"$visibility" --source=. --push
+}
+
+remoteinfo() {
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
+    if [ -z "$branch" ]; then
+        echo "Not on a branch"
+        return 1
+    fi
+
+    echo -e "\n📌 Current branch: $branch"
+    
+    upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
+    if [ -n "$upstream" ]; then
+        echo "Tracking upstream: $upstream"
+    else
+        echo "No upstream set for this branch"
+    fi
+
+    echo -e "\n🌐 Remote repositories:"
+    git remote -v
+    echo
+}
 
 # ================================
 # 🎨 Fancy Git-Aware Prompt with Dirty Indicator
@@ -135,6 +205,5 @@ parse_git_branch() {
     fi
 }
 
-# PS1: user@host:path (branch*)
 export PS1="\[\e[1;32m\]\u@\h \[\e[1;34m\]\w\[\e[0m\]\[\e[1;33m\]\$(parse_git_branch)\[\e[0m\] \$ "
 
