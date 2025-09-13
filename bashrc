@@ -120,12 +120,21 @@ cd ~/Desktop/GIT/
 cdmenu
 
 # ================================
-# 🎨 Fancy Git-Aware Prompt
+# 🎨 Fancy Git-Aware Prompt with Dirty Indicator
 # ================================
-# Show current dir + git branch (if any) with colors
 parse_git_branch() {
-    git branch 2>/dev/null | sed -n '/\* /s///p'
+    git rev-parse --is-inside-work-tree &>/dev/null || return
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
+    status=$(git status --porcelain 2>/dev/null)
+    if [ -n "$branch" ]; then
+        if [ -n "$status" ]; then
+            echo "($branch*)"
+        else
+            echo "($branch)"
+        fi
+    fi
 }
 
+# PS1: user@host:path (branch*)
 export PS1="\[\e[1;32m\]\u@\h \[\e[1;34m\]\w\[\e[0m\]\[\e[1;33m\]\$(parse_git_branch)\[\e[0m\] \$ "
 
