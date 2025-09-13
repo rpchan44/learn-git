@@ -142,71 +142,67 @@ grebase_main() {
 }
 
 # ================================
-# 📖 Helper: ghelp (colorized)
+# Remote Helpers
 # ================================
-ghelp() {
-    echo -e "\n\e[1;32m🌱 Git Helper Commands\e[0m\n"
+setremote() {
+    if [ $# -ne 2 ]; then
+        echo "Usage: setremote <remote_name> <url>"
+        return 1
+    fi
+    local remote_name=$1
+    local url=$2
+    if git remote get-url "$remote_name" &>/dev/null; then
+        echo "Updating remote '$remote_name' to $url"
+        git remote set-url "$remote_name" "$url"
+    else
+        echo "Adding new remote '$remote_name' -> $url"
+        git remote add "$remote_name" "$url"
+    fi
+    git remote -v
+}
 
-    echo -e "\e[1;32m[ Status / Stage / Commit / Push ]\e[0m"
-    echo -e "  \e[1;36mgbs\e[0m      → Branch Status"
-    echo -e "  \e[1;36mga\e[0m       → Stage files"
-    echo -e "  \e[1;36mgau\e[0m      → Unstage files"
-    echo -e "  \e[1;36mgc\e[0m       → Commit with plain message"
-    echo -e "  \e[1;36mgcp\e[0m      → Commit with branch-aware prefix"
-    echo -e "  \e[1;36mgp\e[0m       → Push branch to remote"
-    
-    echo -e "\n\e[1;32m[ Branch Checkout / Switch ]\e[0m"
-    echo -e "  \e[1;36mgco\e[0m      → Checkout branch: gco [-p] <branch-name>"
-    echo -e "  \e[1;36mgcb\e[0m      → Interactive branch selector"
-    echo -e "  \e[1;36mgrebase_main\e[0m → Rebase current branch onto main (-p to pull main first)"
+pushup() {
+    local remote_name=${1:-origin}
+    local branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
+    if [ -z "$branch" ]; then
+        echo "Not on a branch"
+        return 1
+    fi
+    echo "Pushing branch '$branch' to remote '$remote_name'"
+    git push -u "$remote_name" "$branch"
+}
 
-    echo -e "\n\e[1;32m[ Logs / Diffs / Show ]\e[0m"
-    echo -e "  \e[1;36mgl\e[0m       → Pretty log"
-    echo -e "  \e[1;36mgll\e[0m      → Detailed log with colors"
-    echo -e "  \e[1;36mgsh\e[0m      → Show latest commit details"
-    echo -e "  \e[1;36mgd\e[0m       → Diff unstaged changes"
-    echo -e "  \e[1;36mgds\e[0m      → Diff staged changes"
+ghcreate() {
+    if ! command -v gh &>/dev/null; then
+        echo "GitHub CLI (gh) not found. Install from https://cli.github.com/"
+        return 1
+    fi
+    local repo_name=$1
+    local visibility=${2:-private}
+    echo "Creating GitHub repo '$repo_name' with visibility '$visibility'"
+    gh repo create "$repo_name" --"$visibility" --source=. --push
+}
 
-    echo -e "\n\e[1;32m[ Branch Management ]\e[0m"
-    echo -e "  \e[1;36mgbdl\e[0m     → Delete branch locally"
-    echo -e "  \e[1;36mgbdr\e[0m     → Delete branch remotely"
-    echo -e "  \e[1;36mgbll\e[0m     → List local branches"
-    echo -e "  \e[1;36mgblr\e[0m     → List remote branches"
-    echo -e "  \e[1;36mgbrl\e[0m     → Rename branch locally"
-
-    echo -e "\n\e[1;32m[ Rebasing / Resetting ]\e[0m"
-    echo -e "  \e[1;36mgcr\e[0m      → Rebase last 5 commits interactively"
-    echo -e "  \e[1;36mgra\e[0m      → Abort rebase"
-    echo -e "  \e[1;36mgrc\e[0m      → Continue rebase"
-    echo -e "  \e[1;36mgundo\e[0m    → Undo last commit (keep staged)"
-    echo -e "  \e[1;36mgundoh\e[0m   → Undo last commit (unstage changes)"
-    echo -e "  \e[1;36mgundoall\e[0m → Undo last commit (discard changes)"
-
-    echo -e "\n\e[1;32m[ Stash Helpers ]\e[0m"
-    echo -e "  \e[1;36mgstash\e[0m   → Save stash (includes untracked)"
-    echo -e "  \e[1;36mgstashm\e[0m  → Save stash with message"
-    echo -e "  \e[1;36mgstashl\e[0m  → List stash entries"
-    echo -e "  \e[1;36mgstasha\e[0m  → Apply latest stash"
-    echo -e "  \e[1;36mgstashp\e[0m  → Pop latest stash"
-    echo -e "  \e[1;36mgstashd\e[0m  → Drop stash by ID"
-
-    echo -e "\n\e[1;32m[ File Tracking ]\e[0m"
-    echo -e "  \e[1;36mguntrack\e[0m → Stop tracking file but keep locally"
-
-    echo -e "\n\e[1;32m[ Directory Helper ]\e[0m"
-    echo -e "  \e[1;36mcdmenu\e[0m   → Interactive directory selector"
-
-    echo -e "\n\e[1;32m[ Remote / Upstream Helper ]\e[0m"
-    echo -e "  \e[1;36msetremote\e[0m → Add or update a remote URL"
-    echo -e "  \e[1;36mpushup\e[0m    → Push current branch and set upstream"
-    echo -e "  \e[1;36mghcreate\e[0m  → Create GitHub repo and push"
-    echo -e "  \e[1;36mremoteinfo\e[0m → Show remotes and upstream info"
-
-    echo -e "\n💡 Tip: Run \e[1;36mghelp\e[0m anytime to recall these shortcuts!\n"
+remoteinfo() {
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
+    if [ -z "$branch" ]; then
+        echo "Not on a branch"
+        return 1
+    fi
+    echo -e "\n📌 Current branch: $branch"
+    upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
+    if [ -n "$upstream" ]; then
+        echo "Tracking upstream: $upstream"
+    else
+        echo "No upstream set for this branch"
+    fi
+    echo -e "\n🌐 Remote repositories:"
+    git remote -v
+    echo
 }
 
 # ================================
-# 📂 Directory Menu Helper
+# Directory Menu Helper
 # ================================
 cdmenu() {
     dirs=(*/)
@@ -226,7 +222,84 @@ cdmenu() {
 }
 
 # ================================
-# 🌱 Start-up: CD to Git Workspace
+# Git Helper Display
+# ================================
+ghelp() {
+    echo -e "\n\e[1;32m🌱 Git Helper Commands\e[0m\n"
+    echo -e "[ Status / Stage / Commit / Push ]"
+    echo -e "  gbs → Branch Status"
+    echo -e "  ga  → Stage files"
+    echo -e "  gau → Unstage files"
+    echo -e "  gc  → Commit plain"
+    echo -e "  gcp → Commit with branch-aware prefix"
+    echo -e "  gp  → Push branch"
+
+    echo -e "\n[ Branch Checkout / Switch ]"
+    echo -e "  gco          → Checkout branch"
+    echo -e "  gco -p       → Checkout, pull, return"
+    echo -e "  gcb          → Interactive branch select"
+    echo -e "  grebase_main → Rebase onto main (-p pulls main first)"
+
+    echo -e "\n[ Remote / Upstream ]"
+    echo -e "  setremote  → Add or update remote URL"
+    echo -e "  pushup     → Push and set upstream"
+    echo -e "  ghcreate   → Create GitHub repo"
+    echo -e "  remoteinfo → Show remotes and upstream"
+
+    echo -e "\n[ Logs / Diffs / Show ]"
+    echo -e "  gl  → Pretty log"
+    echo -e "  gll → Detailed log"
+    echo -e "  gsh → Show latest commit"
+    echo -e "  gd  → Diff unstaged"
+    echo -e "  gds → Diff staged"
+
+    echo -e "\n[ Branch Management / Rebase / Reset ]"
+    echo -e "  gbdl      → Delete branch locally"
+    echo -e "  gbdr      → Delete branch remotely"
+    echo -e "  gbll      → List local branches"
+    echo -e "  gblr      → List remote branches"
+    echo -e "  gbrl      → Rename branch"
+    echo -e "  gcr       → Rebase last 5 commits interactively"
+    echo -e "  gra       → Abort rebase"
+    echo -e "  grc       → Continue rebase"
+    echo -e "  gundo     → Undo last commit (keep staged)"
+    echo -e "  gundoh    → Undo last commit (unstage)"
+    echo -e "  gundoall  → Undo last commit (discard changes)"
+
+    echo -e "\n[ Stash ]"
+    echo -e "  gstash   → Save stash"
+    echo -e "  gstashm  → Save stash with message"
+    echo -e "  gstashl  → List stash"
+    echo -e "  gstasha  → Apply latest stash"
+    echo -e "  gstashp  → Pop latest stash"
+    echo -e "  gstashd  → Drop stash by ID"
+
+    echo -e "\n[ File / Directory ]"
+    echo -e "  guntrack → Stop tracking file"
+    echo -e "  cdmenu   → Interactive directory select"
+
+    echo -e "\n💡 Tip: Run ghelp anytime to recall these shortcuts!\n"
+}
+
+# ================================
+# Prompt
+# ================================
+parse_git_branch() {
+    git rev-parse --is-inside-work-tree &>/dev/null || return
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
+    status=$(git status --porcelain 2>/dev/null)
+    if [ -n "$branch" ]; then
+        if [ -n "$status" ]; then
+            echo "($branch*)"
+        else
+            echo "($branch)"
+        fi
+    fi
+}
+export PS1="\[\e[1;32m\]\u@\h \[\e[1;34m\]\w\[\e[0m\]\[\e[1;33m\]\$(parse_git_branch)\[\e[0m\] \$ "
+
+# ================================
+# Startup: CD to Git Workspace
 # ================================
 echo "CD to your GIT workspace"
 cd ~/Desktop/GIT/
