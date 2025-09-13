@@ -6,8 +6,8 @@
 alias gbs='echo Branch Status; git status'
 alias ga='echo Staging files; git add'
 alias gau='echo Unstaging files; git reset HEAD'
-alias gc='echo Snapshot the branch; git commit -m'
-alias gcp='echo Commit with branch prefix; gc'
+alias gc='gc_branch_prefix'  # commit with branch prefix
+alias gcp='gc_branch_prefix'
 alias gp='echo Pushing branch to remote; git push'
 
 # --- Logs & Diff ---
@@ -47,7 +47,7 @@ alias gstashd='echo Dropping stash by ID; git stash drop'
 # 📂 Directory Menu Helper
 # ================================
 cdmenu() {
-    dirs=(*/) 
+    dirs=(*/)
     [ ${#dirs[@]} -eq 0 ] && { echo "No subdirectories found"; return 1; }
     echo "Select a directory:"
     select d in "${dirs[@]}"; do
@@ -138,7 +138,90 @@ RESET="\[\e[0m\]"
 export PS1="$GREEN\u@\h $BLUE\w $YELLOW\$(parse_git_status)$RESET ➜ "
 
 # ================================
-# 📖 Simplified Colored ghelp
+# 🛠 Branch Checkout Helpers
+# ================================
+PREV_BRANCH=""
+gco() {
+    local flag_p=0
+    local branch=""
+
+    while [[ "$1" == -* ]]; do
+        case "$1" in
+            -p) flag_p=1 ;;
+            *) echo "Unknown option $1"; return 1 ;;
+        esac
+        shift
+    done
+
+    local current_branch
+    current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+    if [[ $flag_p -eq 1 ]]; then
+        [ -z "$PREV_BRANCH" ] && { echo "No previous branch to return to."; return 1; }
+        branch="$PREV_BRANCH"
+    else
+        branch="$1"
+        [ -z "$branch" ] && { echo "Usage: gco [-p] <branch>"; return 1; }
+    fi
+
+    if [[ "$branch" == "$current_branch" ]]; then
+        echo "Already on branch '$branch'"
+        return 0
+    fi
+
+    git checkout "$branch" || return 1
+    PREV_BRANCH="$current_branch"
+}
+
+gcb() {
+    if command -v fzf &>/dev/null; then
+        local branch=$(git branch --all | sed 's/^[* ] //' | fzf --height 40% --reverse --border)
+    else
+        echo "fzf not found. Listing branches numerically:"
+        mapfile -t branches < <(git branch --all | sed 's/^[* ] //')
+        select branch in "${branches[@]}"; do
+            [ -n "$branch" ] && break
+        done
+    fi
+    [ -z "$branch" ] && { echo "No branch selected"; return 1; }
+    gco "$branch"
+}
+
+# ================================
+# 📝 Commit with branch prefix
+# ================================
+gc_branch_prefix() {
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+    [ -z "$branch" ] && { echo "Not on a branch"; return 1; }
+
+    if [[ "$branch" =~ ^([a-zA-Z0-9_-]+)/([A-Z]+-[0-9]+)$ ]]; then
+        prefix="${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} - "
+    else
+        prefix=""
+    fi
+
+    if [ $# -gt 0 ]; then
+        git commit -m "$prefix$*"
+    else
+        read -p "Commit message: " msg
+        git commit -m "$prefix$msg"
+    fi
+}
+
+# ================================
+# 🔄 Rebase onto any branch
+# ================================
+grebase() {
+    target=${1:-main}
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+    [ -z "$branch" ] && { echo "Not on a branch"; return 1; }
+
+    git fetch origin
+    git rebase "origin/$target"
+}
+
+# ================================
+# 📖 Colored Git Helper Menu
 # ================================
 ghelp() {
     echo -e "\n\e[1;32m🌱 Git Helper Commands\e[0m\n"
@@ -147,57 +230,52 @@ ghelp() {
     echo -e "  \e[1;36mgbs\e[0m      → Branch Status"
     echo -e "  \e[1;36mga\e[0m       → Stage files"
     echo -e "  \e[1;36mgau\e[0m      → Unstage files"
-    echo -e "  \e[1;36mgc\e[0m       → Commit with message"
-    echo -e "  \e[1;36mgcp\e[0m      → Branch Commit"
+    echo -e "  \e[1;36mgc\e[0m       → Commit with branch prefix"
+    echo -e "  \e[1;36mgcp\e[0m      → Commit with branch prefix"
     echo -e "  \e[1;36mgp\e[0m       → Push branch to remote"
 
-    echo -e "\n\e[1;32m[ Branch / Checkout / Rebase ]\e[0m"
-    echo -e "  \e[1;36mgco\e[0m       → Checkout branch"
-    echo -e "  \e[1;36mgco -p\e[0m    → Checkout and pull"
-    echo -e "  \e[1;36mgcb\e[0m      → Interactive Checkout"
-    echo -e "  \e[1;36mgrebase_main\e[0m → Rebase branch onto main"
-
-    echo -e "\n\e[1;32m[ Remote / Upstream ]\e[0m"
-    echo -e "  \e[1;36msetremote\e[0m → Set remote URL"
-    echo -e "  \e[1;36mpushup\e[0m    → Push branch and set upstream"
-    echo -e "  \e[1;36mghcreate\e[0m  → Create GitHub repo and push"
-    echo -e "  \e[1;36mremoteinfo\e[0m → Show remotes and upstream info"
-
-    echo -e "\n\e[1;32m[ Logs / Diff / Show ]\e[0m"
+    echo -e "\n\e[1;32m[ Logs / Diffs / Show ]\e[0m"
     echo -e "  \e[1;36mgl\e[0m       → Pretty log"
     echo -e "  \e[1;36mgll\e[0m      → Detailed log with colors"
-    echo -e "  \e[1;36mgsh\e[0m      → Show latest commit"
+    echo -e "  \e[1;36mgsh\e[0m      → Show latest commit details"
     echo -e "  \e[1;36mgd\e[0m       → Diff unstaged changes"
     echo -e "  \e[1;36mgds\e[0m      → Diff staged changes"
 
-    echo -e "\n\e[1;32m[ Branch Mgmt / Reset ]\e[0m"
+    echo -e "\n\e[1;32m[ Branch Management ]\e[0m"
     echo -e "  \e[1;36mgbdl\e[0m     → Delete branch locally"
     echo -e "  \e[1;36mgbdr\e[0m     → Delete branch remotely"
     echo -e "  \e[1;36mgbll\e[0m     → List local branches"
     echo -e "  \e[1;36mgblr\e[0m     → List remote branches"
     echo -e "  \e[1;36mgbrl\e[0m     → Rename branch locally"
-    echo -e "  \e[1;36mgcr\e[0m      → Rebase last 5 commits"
+    echo -e "  \e[1;36mgco\e[0m      → Checkout branch (with -p to return to previous)"
+    echo -e "  \e[1;36mgcb\e[0m      → Interactive checkout"
+
+    echo -e "\n\e[1;32m[ Rebasing / Resetting ]\e[0m"
+    echo -e "  \e[1;36mgcr\e[0m      → Rebase last 5 commits interactively"
     echo -e "  \e[1;36mgra\e[0m      → Abort rebase"
     echo -e "  \e[1;36mgrc\e[0m      → Continue rebase"
-    echo -e "  \e[1;36mgundo\e[0m    → Undo last commit (soft)"
-    echo -e "  \e[1;36mgundoh\e[0m   → Undo last commit (mixed)"
-    echo -e "  \e[1;36mgundoall\e[0m → Undo last commit (hard)"
+    echo -e "  \e[1;36ggrebase\e[0m   → Rebase current branch onto main (or specified)"
+    echo -e "  \e[1;36mgundo\e[0m    → Undo last commit (keep staged)"
+    echo -e "  \e[1;36mgundoh\e[0m   → Undo last commit (unstage changes)"
+    echo -e "  \e[1;36mgundoall\e[0m → Undo last commit (discard changes)"
 
     echo -e "\n\e[1;32m[ Stash Helpers ]\e[0m"
-    echo -e "  \e[1;36mgstash\e[0m   → Save changes to stash"
+    echo -e "  \e[1;36mgstash\e[0m   → Save stash (includes untracked)"
     echo -e "  \e[1;36mgstashm\e[0m  → Save stash with message"
     echo -e "  \e[1;36mgstashl\e[0m  → List stash entries"
     echo -e "  \e[1;36mgstasha\e[0m  → Apply latest stash"
     echo -e "  \e[1;36mgstashp\e[0m  → Pop latest stash"
     echo -e "  \e[1;36mgstashd\e[0m  → Drop stash by ID"
 
-    echo -e "\n\e[1;32m[ File / Directory ]\e[0m"
+    echo -e "\n\e[1;32m[ File Tracking ]\e[0m"
     echo -e "  \e[1;36mguntrack\e[0m → Stop tracking file but keep locally"
-    echo -e "  \e[1;36mcdmenu\e[0m   → Directory selector"
-}
 
-# Scrollable version
-ghelp_p() {
-    ghelp | less -R
+    echo -e "\n\e[1;32m[ Remote / Upstream Helper ]\e[0m"
+    echo -e "  \e[1;36msetremote\e[0m → Add or update a remote URL"
+    echo -e "  \e[1;36mpushup\e[0m    → Push current branch and set upstream"
+    echo -e "  \e[1;36mghcreate\e[0m  → Create GitHub repo and push"
+    echo -e "  \e[1;36mremoteinfo\e[0m → Show remotes and upstream info"
+
+    echo -e "\n💡 Tip: Run \e[1;36mghelp\e[0m anytime to recall these shortcuts!\n"
 }
 
