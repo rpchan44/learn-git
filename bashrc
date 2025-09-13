@@ -193,21 +193,29 @@ gcb() {
 # 📝 Commit with branch prefix
 # ================================
 gc_branch_prefix() {
-    branch=$(git symbolic-ref --short HEAD 2>/dev/null)
-    [ -z "$branch" ] && { echo "Not on a branch"; return 1; }
 
-    if [[ "$branch" =~ ^([a-zA-Z0-9_-]+)/([A-Z]+-[0-9]+)$ ]]; then
-        prefix="${BASH_REMATCH[1]}: ${BASH_REMATCH[2]} - "
-    else
-        prefix=""
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
+    if [ -z "$branch" ]; then
+        echo "Not on a branch"
+        return 1
     fi
 
-    if [ $# -gt 0 ]; then
-        git commit -m "$prefix$*"
+    # Extract prefix and ticket
+    if [[ "$branch" =~ ^([^/]+)/(.+)$ ]]; then
+        prefix="${BASH_REMATCH[1]}"
+        ticket="${BASH_REMATCH[2]}"
+        commit_prefix="$prefix: $ticket - "
     else
-        read -p "Commit message: " msg
-        git commit -m "$prefix$msg"
+        commit_prefix=""
     fi
+
+    if [ $# -eq 0 ]; then
+        echo "Usage: gcp <commit message>"
+        return 1
+    fi
+
+    git commit -m "$commit_prefix$*"
+
 }
 
 # ================================
