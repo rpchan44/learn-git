@@ -27,8 +27,8 @@ alias gbrl='echo Renaming branch locally; git branch -m'
 alias gcr='echo Rebasing HEAD with last 5 commits; git rebase -i HEAD~5'
 alias gra='echo Git rebase ABORT; git rebase --abort'
 alias grc='echo Git rebase continue; git rebase --continue'
-alias gundo='echo Undo last commit [keep changes staged]; git reset --soft HEAD~1'
-alias gundoh='echo Undo last commit [unstage changes, keep edits]; git reset --mixed HEAD~1'
+alias gundo='echo Undo last commit (keep changes staged); git reset --soft HEAD~1'
+alias gundoh='echo Undo last commit (unstage changes, keep edits); git reset --mixed HEAD~1'
 alias gundoall='echo Undo last commit and discard changes; git reset --hard HEAD~1'
 
 # --- File Tracking ---
@@ -49,14 +49,14 @@ ghelp() {
     echo -e "\n\e[1;32m🌱 Git Helper Commands\e[0m\n"
 
     echo -e "\e[1;32m[ Status / Stage / Commit / Push ]\e[0m"
-    echo -e "  \e[1;36mgbs\e[0m      → Branch Status (git status)"
-    echo -e "  \e[1;36mga\e[0m       → Stage files (git add)"
-    echo -e "  \e[1;36mgau\e[0m      → Unstage files (git reset HEAD <file>)"
-    echo -e "  \e[1;36mgc\e[0m       → Commit with message (git commit -m)"
-    echo -e "  \e[1;36mgp\e[0m       → Push branch to remote (git push)"
+    echo -e "  \e[1;36mgbs\e[0m      → Branch Status"
+    echo -e "  \e[1;36mga\e[0m       → Stage files"
+    echo -e "  \e[1;36mgau\e[0m      → Unstage files"
+    echo -e "  \e[1;36mgc\e[0m       → Commit with message"
+    echo -e "  \e[1;36mgp\e[0m       → Push branch to remote"
     
     echo -e "\n\e[1;32m[ Logs / Diffs / Show ]\e[0m"
-    echo -e "  \e[1;36mgl\e[0m       → Pretty log (oneline + graph)"
+    echo -e "  \e[1;36mgl\e[0m       → Pretty log"
     echo -e "  \e[1;36mgll\e[0m      → Detailed log with colors"
     echo -e "  \e[1;36mgsh\e[0m      → Show latest commit details"
     echo -e "  \e[1;36mgd\e[0m       → Diff unstaged changes"
@@ -78,11 +78,11 @@ ghelp() {
     echo -e "  \e[1;36mgundoall\e[0m → Undo last commit (discard changes)"
 
     echo -e "\n\e[1;32m[ Stash Helpers ]\e[0m"
-    echo -e "  \e[1;36mgstash\e[0m   → Save changes to stash (includes untracked)"
+    echo -e "  \e[1;36mgstash\e[0m   → Save stash (includes untracked)"
     echo -e "  \e[1;36mgstashm\e[0m  → Save stash with message"
     echo -e "  \e[1;36mgstashl\e[0m  → List stash entries"
     echo -e "  \e[1;36mgstasha\e[0m  → Apply latest stash"
-    echo -e "  \e[1;36mgstashp\e[0m  → Pop latest stash (apply + remove)"
+    echo -e "  \e[1;36mgstashp\e[0m  → Pop latest stash"
     echo -e "  \e[1;36mgstashd\e[0m  → Drop stash by ID"
 
     echo -e "\n\e[1;32m[ File Tracking ]\e[0m"
@@ -94,6 +94,9 @@ ghelp() {
     echo -e "\n💡 Tip: Run \e[1;36mghelp\e[0m anytime to recall these shortcuts!\n"
 }
 
+# ================================
+# 📂 Directory Menu Helper
+# ================================
 cdmenu() {
     dirs=(*/)
     if [ ${#dirs[@]} -eq 0 ]; then
@@ -112,11 +115,17 @@ cdmenu() {
     done
 }
 ghelp
-
-# ================================
-# 📂 Directory Menu Helper
-# ================================
 echo "CD to your GIT workspace"
 cd ~/Desktop/GIT/
 cdmenu
+
+# ================================
+# 🎨 Fancy Git-Aware Prompt
+# ================================
+# Show current dir + git branch (if any) with colors
+parse_git_branch() {
+    git branch 2>/dev/null | sed -n '/\* /s///p'
+}
+
+export PS1="\[\e[1;32m\]\u@\h \[\e[1;34m\]\w\[\e[0m\]\[\e[1;33m\]\$(parse_git_branch)\[\e[0m\] \$ "
 
