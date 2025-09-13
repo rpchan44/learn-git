@@ -344,7 +344,6 @@ complete -F _git_branch_smart_completion gco
 complete -F _git_branch_smart_completion gcb
 complete -F _git_branch_smart_completion gbdl
 complete -F _git_branch_smart_completion gbrl
-complete -F _git_branch_smart_completion gbll
 
 # --- Remote name completion ---
 _git_remote_completion() {
