@@ -142,11 +142,11 @@ export PS1="$GREEN\u@\h $BLUE\w $YELLOW\$(parse_git_status)$RESET ➜ "
 # ================================
 # 🛠 Branch Checkout Helpers
 # ================================
-PREV_BRANCH=""
 gco() {
     local flag_p=0
     local branch=""
 
+    # Parse options
     while [[ "$1" == -* ]]; do
         case "$1" in
             -p) flag_p=1 ;;
@@ -155,24 +155,27 @@ gco() {
         shift
     done
 
+    branch="$1"
+    [ -z "$branch" ] && { echo "Usage: gco [-p] <branch>"; return 1; }
+
+    # Save current branch
     local current_branch
     current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
-
-    if [[ $flag_p -eq 1 ]]; then
-        [ -z "$PREV_BRANCH" ] && { echo "No previous branch to return to."; return 1; }
-        branch="$PREV_BRANCH"
-    else
-        branch="$1"
-        [ -z "$branch" ] && { echo "Usage: gco [-p] <branch>"; return 1; }
-    fi
 
     if [[ "$branch" == "$current_branch" ]]; then
         echo "Already on branch '$branch'"
         return 0
     fi
 
-    git checkout "$branch" || return 1
-    PREV_BRANCH="$current_branch"
+    if [[ $flag_p -eq 1 ]]; then
+        # Checkout target branch, pull, then return
+        git checkout "$branch" || return 1
+        git pull || return 1
+        git checkout "$current_branch" || return 1
+        echo "Pulled '$branch' and returned to '$current_branch'"
+    else
+        git checkout "$branch" || return 1
+    fi
 }
 
 gcb() {
