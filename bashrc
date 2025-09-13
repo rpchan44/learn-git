@@ -44,19 +44,14 @@ alias gstashd='echo Dropping stash by ID; git stash drop'
 # ================================
 # 🌱 Git Commit Helpers
 # ================================
-
-# Simple commit (old-style, plain)
 alias gc='git commit -m'
 
-# Branch-aware commit (prefixes branch type/ticket automatically)
 gcp() {
     branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
     if [ -z "$branch" ]; then
         echo "Not on a branch"
         return 1
     fi
-
-    # Extract prefix and ticket
     if [[ "$branch" =~ ^([^/]+)/(.+)$ ]]; then
         prefix="${BASH_REMATCH[1]}"
         ticket="${BASH_REMATCH[2]}"
@@ -64,49 +59,39 @@ gcp() {
     else
         commit_prefix=""
     fi
-
     if [ $# -eq 0 ]; then
         echo "Usage: gcp <commit message>"
         return 1
     fi
-
     git commit -m "$commit_prefix$*"
 }
 
 # ================================
 # Branch Checkout Helpers
 # ================================
-
-# Checkout branch with optional pull
 gco() {
     pull_after_checkout=false
-
     if [ "$1" == "-p" ]; then
         pull_after_checkout=true
         shift
     fi
-
     if [ -z "$1" ]; then
         echo "Usage: gco [-p] <branch-name>"
         return 1
     fi
-
     branch="$1"
     git checkout "$branch" || return 1
-
     if [ "$pull_after_checkout" = true ]; then
         git pull
     fi
 }
 
-# Interactive branch selector
 gcb() {
     branches=($(git branch --all | sed 's/^[* ]*//'))
     if [ ${#branches[@]} -eq 0 ]; then
         echo "No branches found"
         return 1
     fi
-
     echo "Select a branch to checkout:"
     select b in "${branches[@]}"; do
         if [ -n "$b" ]; then
@@ -119,6 +104,30 @@ gcb() {
 }
 
 # ================================
+# Rebase current branch onto main
+# ================================
+grebase_main() {
+    pull_main=false
+    if [ "$1" == "-p" ]; then
+        pull_main=true
+    fi
+    current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+    if [ -z "$current_branch" ]; then
+        echo "Not on a branch"
+        return 1
+    fi
+    echo "Current branch: $current_branch"
+    git checkout main || { echo "Failed to checkout main"; return 1; }
+    if [ "$pull_main" = true ]; then
+        echo "Pulling latest main..."
+        git pull || { echo "Failed to pull main"; return 1; }
+    fi
+    git checkout "$current_branch" || { echo "Failed to checkout $current_branch"; return 1; }
+    echo "Rebasing $current_branch onto main..."
+    git rebase main
+}
+
+# ================================
 # 📖 Helper: ghelp (colorized)
 # ================================
 ghelp() {
@@ -128,13 +137,14 @@ ghelp() {
     echo -e "  \e[1;36mgbs\e[0m      → Branch Status"
     echo -e "  \e[1;36mga\e[0m       → Stage files"
     echo -e "  \e[1;36mgau\e[0m      → Unstage files"
-    echo -e "  \e[1;36mgc\e[0m       → Commit with plain message (no branch prefix)"
-    echo -e "  \e[1;36mgcp\e[0m      → Commit with branch-aware prefix (auto-prefixes branch type/ticket)"
+    echo -e "  \e[1;36mgc\e[0m       → Commit with plain message"
+    echo -e "  \e[1;36mgcp\e[0m      → Commit with branch-aware prefix"
     echo -e "  \e[1;36mgp\e[0m       → Push branch to remote"
     
     echo -e "\n\e[1;32m[ Branch Checkout / Switch ]\e[0m"
-    echo -e "  \e[1;36mgco\e[0m      → Checkout branch: gco [-p] <branch-name>  (use -p to pull after checkout)"
+    echo -e "  \e[1;36mgco\e[0m      → Checkout branch: gco [-p] <branch-name>"
     echo -e "  \e[1;36mgcb\e[0m      → Interactive branch selector"
+    echo -e "  \e[1;36mgrebase_main\e[0m → Rebase current branch onto main (-p to pull main first)"
 
     echo -e "\n\e[1;32m[ Logs / Diffs / Show ]\e[0m"
     echo -e "  \e[1;36mgl\e[0m       → Pretty log"
@@ -190,7 +200,6 @@ cdmenu() {
         echo "No subdirectories found"
         return 1
     fi
-
     echo "Select a directory:"
     select d in "${dirs[@]}"; do
         if [ -n "$d" ]; then
@@ -202,11 +211,6 @@ cdmenu() {
     done
 }
 
-echo "CD to your GIT workspace"
-cd ~/Desktop/GIT/
-cdmenu
-echo "ghelp - for additional helper"
-
 # ================================
 # 🌐 Remote Repo Helpers
 # ================================
@@ -217,7 +221,6 @@ setremote() {
     fi
     local remote_name=$1
     local url=$2
-
     if git remote get-url "$remote_name" &>/dev/null; then
         echo "Updating remote '$remote_name' to $url"
         git remote set-url "$remote_name" "$url"
@@ -256,16 +259,13 @@ remoteinfo() {
         echo "Not on a branch"
         return 1
     fi
-
     echo -e "\n📌 Current branch: $branch"
-    
     upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
     if [ -n "$upstream" ]; then
         echo "Tracking upstream: $upstream"
     else
         echo "No upstream set for this branch"
     fi
-
     echo -e "\n🌐 Remote repositories:"
     git remote -v
     echo
@@ -288,4 +288,12 @@ parse_git_branch() {
 }
 
 export PS1="\[\e[1;32m\]\u@\h \[\e[1;34m\]\w\[\e[0m\]\[\e[1;33m\]\$(parse_git_branch)\[\e[0m\] \$ "
+
+# ================================
+# 🌱 Start-up: CD to Git Workspace
+# ================================
+echo "CD to your GIT workspace"
+cd ~/Desktop/GIT/
+cdmenu
+echo "ghelp - for additional helper functions"
 
