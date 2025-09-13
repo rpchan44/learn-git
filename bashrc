@@ -225,12 +225,26 @@ gc_branch_prefix() {
 # 🔄 Rebase onto any branch
 # ================================
 grebase() {
-    target=${1:-main}
+    local target="${1:-main}"
+    local branch
     branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
     [ -z "$branch" ] && { echo "Not on a branch"; return 1; }
 
-    git fetch origin
-    git rebase "origin/$target"
+    echo "You are on branch '$branch'."
+    echo "Do you want to rebase '$branch' onto 'origin/$target'? [y/N]"
+    read -r answer
+    case "$answer" in
+        [Yy]* )
+            git fetch origin || { echo "Failed to fetch"; return 1; }
+            git rebase "origin/$target" || { echo "Rebase failed"; return 1; }
+            echo "Rebased '$branch' onto 'origin/$target'"
+            ;;
+        * )
+            echo "Aborted"
+            return 0
+            ;;
+    esac
 }
 
 # ================================
