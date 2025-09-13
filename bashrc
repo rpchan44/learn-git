@@ -120,7 +120,7 @@ cdmenu() {
         fi
     done
 }
-
+ghelp
 echo "CD to your GIT workspace"
 cd ~/Desktop/GIT/
 cdmenu
