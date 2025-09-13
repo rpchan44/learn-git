@@ -6,7 +6,6 @@
 alias gbs='echo Branch Status; git status'
 alias ga='echo Staging files; git add'
 alias gau='echo Unstaging files; git reset HEAD'
-alias gc='echo Snapshot the branch; git commit -m'
 alias gp='echo Pushing branch to remote; git push'
 
 # --- Logs & Diff ---
@@ -43,6 +42,38 @@ alias gstashp='echo Popping latest stash; git stash pop'
 alias gstashd='echo Dropping stash by ID; git stash drop'
 
 # ================================
+# 🌱 Git Commit Helpers
+# ================================
+
+# Simple commit (old-style, plain)
+alias gc='git commit -m'
+
+# Branch-aware commit (prefixes branch type/ticket automatically)
+gcp() {
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
+    if [ -z "$branch" ]; then
+        echo "Not on a branch"
+        return 1
+    fi
+
+    # Extract prefix and ticket
+    if [[ "$branch" =~ ^([^/]+)/(.+)$ ]]; then
+        prefix="${BASH_REMATCH[1]}"
+        ticket="${BASH_REMATCH[2]}"
+        commit_prefix="$prefix: $ticket - "
+    else
+        commit_prefix=""
+    fi
+
+    if [ $# -eq 0 ]; then
+        echo "Usage: gcp <commit message>"
+        return 1
+    fi
+
+    git commit -m "$commit_prefix$*"
+}
+
+# ================================
 # 📖 Helper: ghelp (colorized)
 # ================================
 ghelp() {
@@ -52,7 +83,9 @@ ghelp() {
     echo -e "  \e[1;36mgbs\e[0m      → Branch Status"
     echo -e "  \e[1;36mga\e[0m       → Stage files"
     echo -e "  \e[1;36mgau\e[0m      → Unstage files"
-    echo -e "  \e[1;36mgc\e[0m       → Commit with message"
+    echo -e "  \e[1;36mgc\e[0m       → Commit with plain message (no branch prefix)"
+    echo -e "  \e[1;36mgcp\e[0m      → Commit with branch-aware prefix (auto-prefixes branch type/ticket)"
+    echo -e "                  e.g., branch 'feat/HELP-123', usage: gcp \"Fix login bug\" → commit message: feat: HELP-123 - Fix login bug"
     echo -e "  \e[1;36mgp\e[0m       → Push branch to remote"
     
     echo -e "\n\e[1;32m[ Logs / Diffs / Show ]\e[0m"
@@ -120,10 +153,10 @@ cdmenu() {
         fi
     done
 }
-ghelp
 echo "CD to your GIT workspace"
 cd ~/Desktop/GIT/
 cdmenu
+echo "ghelp - for additional helper function"
 
 # ================================
 # 🌐 Remote Repo Helpers
