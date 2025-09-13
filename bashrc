@@ -262,7 +262,7 @@ ghelp() {
     echo -e "  \e[1;36mgbll\e[0m     → List local branches"
     echo -e "  \e[1;36mgblr\e[0m     → List remote branches"
     echo -e "  \e[1;36mgbrl\e[0m     → Rename branch locally"
-    echo -e "  \e[1;36mgco\e[0m      → Checkout branch (with -p to return to previous)"
+    echo -e "  \e[1;36mgco\e[0m      → Checkout branch (with -p perform git pull and return to previous branch)"
     echo -e "  \e[1;36mgcb\e[0m      → Interactive checkout"
 
     echo -e "\n\e[1;32m[ Rebasing / Resetting ]\e[0m"
