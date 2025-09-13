@@ -23,6 +23,8 @@ alias gbdr='echo Deleting branch remotely; git push origin --delete'
 alias gbll='echo Listing local branches; git branch'
 alias gblr='echo Listing remote branches; git branch -r'
 alias gbrl='echo Renaming branch locally; git branch -m'
+alias gpf='echo Push your local to remote (no matter what); pushforce'
+alias gsf='echo Pull your remote branch to your local (no matter what); syncforce'
 
 # --- Rebasing / Resetting ---
 alias gcr='echo Rebasing HEAD with last 5 commits; git rebase -i HEAD~5'
@@ -42,6 +44,7 @@ alias gstashl='echo Listing stash entries; git stash list'
 alias gstasha='echo Applying latest stash; git stash apply'
 alias gstashp='echo Popping latest stash; git stash pop'
 alias gstashd='echo Dropping stash by ID; git stash drop'
+
 
 # ================================
 # 📂 Directory Menu Helper
@@ -247,6 +250,55 @@ grebase() {
     esac
 }
 
+# --- Force push local branch to remote ---
+pushforce() {
+    local remote_name=${1:-origin}
+    local branch
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+    [ -z "$branch" ] && { echo "Not on a branch"; return 1; }
+
+    echo "⚠️ WARNING: This will overwrite remote branch '$branch' on '$remote_name'"
+    echo "Do you want to continue? [y/N]"
+    read -r answer
+    case "$answer" in
+        [Yy]* )
+            git push "$remote_name" "$branch" --force-with-lease || {
+                echo "Force push failed"
+                return 1
+            }
+            echo "✅ Force-pushed '$branch' to '$remote_name'"
+            ;;
+        * )
+            echo "Aborted"
+            return 0
+            ;;
+    esac
+}
+
+# --- Hard-sync local branch with remote ---
+syncforce() {
+    local remote_name=${1:-origin}
+    local branch
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+    [ -z "$branch" ] && { echo "Not on a branch"; return 1; }
+
+    echo "⚠️ WARNING: This will overwrite your local branch '$branch' to match '$remote_name/$branch'"
+    echo "Do you want to continue? [y/N]"
+    read -r answer
+    case "$answer" in
+        [Yy]* )
+            git fetch "$remote_name" || { echo "Fetch failed"; return 1; }
+            git reset --hard "$remote_name/$branch" || { echo "Reset failed"; return 1; }
+            echo "✅ Local branch '$branch' synced to '$remote_name/$branch'"
+            ;;
+        * )
+            echo "Aborted"
+            return 0
+            ;;
+    esac
+}
+
+
 # ================================
 # 📖 Colored Git Helper Menu
 # ================================
@@ -278,6 +330,9 @@ ghelp() {
     echo -e "  \e[1;36mgbrl\e[0m     → Rename branch locally"
     echo -e "  \e[1;36mgco\e[0m      → Checkout branch (with -p perform git pull and return to previous branch)"
     echo -e "  \e[1;36mgcb\e[0m      → Interactive checkout"
+    echo -e "  \e[1;36mpushforce\e[0m → Force push local branch to remote (⚠️ overwrites remote)"
+    echo -e "  \e[1;36msyncforce\e[0m → Hard-sync local branch to match remote (⚠️ overwrites local)"
+
 
     echo -e "\n\e[1;32m[ Rebasing / Resetting ]\e[0m"
     echo -e "  \e[1;36mgcr\e[0m      → Rebase last 5 commits interactively"
