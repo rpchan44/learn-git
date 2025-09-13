@@ -111,10 +111,12 @@ parse_git_status() {
     branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
     staged=$(git diff --cached --name-only 2>/dev/null | wc -l)
     unstaged=$(git diff --name-only 2>/dev/null | wc -l)
+    untracked=$(git ls-files --others --exclude-standard | wc -l)
 
     dirty=""
     [ "$staged" -gt 0 ] && dirty+="●"
     [ "$unstaged" -gt 0 ] && dirty+="✗"
+    [ "$untracked" -gt 0 ] && dirty+="..."
     [ -z "$dirty" ] && dirty="✔"
 
     ahead=$(git rev-list --count --left-only @{u}...HEAD 2>/dev/null)
