@@ -74,6 +74,51 @@ gcp() {
 }
 
 # ================================
+# Branch Checkout Helpers
+# ================================
+
+# Checkout branch with optional pull
+gco() {
+    pull_after_checkout=false
+
+    if [ "$1" == "-p" ]; then
+        pull_after_checkout=true
+        shift
+    fi
+
+    if [ -z "$1" ]; then
+        echo "Usage: gco [-p] <branch-name>"
+        return 1
+    fi
+
+    branch="$1"
+    git checkout "$branch" || return 1
+
+    if [ "$pull_after_checkout" = true ]; then
+        git pull
+    fi
+}
+
+# Interactive branch selector
+gcb() {
+    branches=($(git branch --all | sed 's/^[* ]*//'))
+    if [ ${#branches[@]} -eq 0 ]; then
+        echo "No branches found"
+        return 1
+    fi
+
+    echo "Select a branch to checkout:"
+    select b in "${branches[@]}"; do
+        if [ -n "$b" ]; then
+            git checkout "$b"
+            break
+        else
+            echo "Invalid choice"
+        fi
+    done
+}
+
+# ================================
 # 📖 Helper: ghelp (colorized)
 # ================================
 ghelp() {
@@ -85,9 +130,12 @@ ghelp() {
     echo -e "  \e[1;36mgau\e[0m      → Unstage files"
     echo -e "  \e[1;36mgc\e[0m       → Commit with plain message (no branch prefix)"
     echo -e "  \e[1;36mgcp\e[0m      → Commit with branch-aware prefix (auto-prefixes branch type/ticket)"
-    echo -e "                  e.g., branch 'feat/HELP-123', usage: gcp \"Fix login bug\" → commit message: feat: HELP-123 - Fix login bug"
     echo -e "  \e[1;36mgp\e[0m       → Push branch to remote"
     
+    echo -e "\n\e[1;32m[ Branch Checkout / Switch ]\e[0m"
+    echo -e "  \e[1;36mgco\e[0m      → Checkout branch: gco [-p] <branch-name>  (use -p to pull after checkout)"
+    echo -e "  \e[1;36mgcb\e[0m      → Interactive branch selector"
+
     echo -e "\n\e[1;32m[ Logs / Diffs / Show ]\e[0m"
     echo -e "  \e[1;36mgl\e[0m       → Pretty log"
     echo -e "  \e[1;36mgll\e[0m      → Detailed log with colors"
@@ -153,10 +201,11 @@ cdmenu() {
         fi
     done
 }
+
 echo "CD to your GIT workspace"
 cd ~/Desktop/GIT/
 cdmenu
-echo "ghelp - for additional helper function"
+echo "ghelp - for additional helper"
 
 # ================================
 # 🌐 Remote Repo Helpers
