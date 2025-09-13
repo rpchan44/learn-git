@@ -89,10 +89,31 @@ pushup() {
 }
 
 ghcreate() {
-    ! command -v gh &>/dev/null && { echo "GitHub CLI not found"; return 1; }
-    local repo_name=$1 visibility=${2:-private}
-    echo "Creating GitHub repo '$repo_name' with visibility '$visibility'"
-    gh repo create "$repo_name" --"$visibility" --source=. --push
+    local repo_name visibility url
+
+    repo_name=$1
+    visibility=${2:-private}
+
+    [ -z "$repo_name" ] && { echo "Usage: ghcreate <repo_name> [private|public]"; return 1; }
+
+    # Encode repo name for URL (basic encoding)
+    repo_name_encoded=$(python -c "import urllib.parse; print(urllib.parse.quote('$repo_name'))")
+
+    # GitHub new repo URL with pre-filled fields
+    url="https://github.com/new?name=$repo_name_encoded&private=$( [[ "$visibility" == "private" ]] && echo true || echo false )"
+
+    echo "Opening browser to create GitHub repo '$repo_name' ($visibility)"
+
+    # Open URL in default browser on Windows
+    if command -v start &>/dev/null; then
+        start "" "$url"
+    elif command -v xdg-open &>/dev/null; then
+        xdg-open "$url"
+    elif command -v open &>/dev/null; then
+        open "$url"
+    else
+        echo "Please open this URL manually: $url"
+    fi
 }
 
 remoteinfo() {
