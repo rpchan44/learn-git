@@ -309,3 +309,94 @@ ghelp() {
     echo -e "\n💡 Tip: Run \e[1;36mghelp\e[0m anytime to recall these shortcuts!\n"
 }
 
+# ================================
+# 🌟 Advanced Tab-Completion for Git Helpers
+# ================================
+
+# --- Smart branch completion for gco/gcb ---
+_git_branch_smart_completion() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local prev="${COMP_WORDS[COMP_CWORD-1]}"
+    local opts="-p"
+
+    # If previous word is an option, skip completion
+    if [[ "$prev" == -* ]]; then
+        return 0
+    fi
+
+    # Complete option if it's the current word
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
+        return 0
+    fi
+
+    # List local branches first
+    local local_branches remote_branches all_branches
+    local_branches=$(git for-each-ref --format='%(refname:short)' refs/heads/ | sort)
+    remote_branches=$(git for-each-ref --format='%(refname:short)' refs/remotes/ | sed 's|^origin/||' | sort)
+    all_branches=$(echo -e "${local_branches}\n${remote_branches}" | sort -u)
+
+    COMPREPLY=( $(compgen -W "${all_branches}" -- "$cur") )
+}
+
+# Attach smart branch completion
+complete -F _git_branch_smart_completion gco
+complete -F _git_branch_smart_completion gcb
+complete -F _git_branch_smart_completion gbdl
+complete -F _git_branch_smart_completion gbrl
+complete -F _git_branch_smart_completion gbll
+
+# --- Remote name completion ---
+_git_remote_completion() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local remotes
+    remotes=$(git remote)
+    COMPREPLY=( $(compgen -W "${remotes}" -- "$cur") )
+}
+complete -F _git_remote_completion setremote
+complete -F _git_remote_completion pushup
+complete -F _git_remote_completion gbdr
+
+# --- Stash ID completion ---
+_git_stash_completion() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local stashes
+    stashes=$(git stash list | awk -F: '{print $1}')
+    COMPREPLY=( $(compgen -W "${stashes}" -- "$cur") )
+}
+complete -F _git_stash_completion gstasha
+complete -F _git_stash_completion gstashp
+complete -F _git_stash_completion gstashd
+
+# --- Commit message completion (gcp) ---
+_git_commit_message_completion() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+    local prefix=""
+    if [[ "$branch" =~ ^([^/]+)/(.+)$ ]]; then
+        prefix="${BASH_REMATCH[2]}"
+    fi
+    COMPREPLY=( $(compgen -W "$prefix" -- "$cur") )
+}
+complete -F _git_commit_message_completion gcp
+
+# --- GitHub repo completion (ghcreate) ---
+_git_folder_completion() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local dirs
+    dirs=$(find . -maxdepth 1 -type d -printf "%f\n")
+    COMPREPLY=( $(compgen -W "${dirs}" -- "$cur") )
+}
+complete -F _git_folder_completion ghcreate
+
+# ================================
+# ✅ Features
+# - gco/gcb: handles -p option, local branches first, remote branches next
+# - Branch deletion/rename/list: smart branch completion
+# - Remote commands: setremote/pushup/gbdr
+# - Stash commands: gstasha/gstashp/gstashd
+# - Commit messages: gcp suggests ticket prefix
+# - GitHub repo creation: ghcreate suggests local folders
+# ================================
+
+
