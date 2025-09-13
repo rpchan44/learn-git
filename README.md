@@ -1,9 +1,5 @@
 # learn-git
 
-This is a test repository
-This will conflict
-
-<b>Test</b>
-
+This is my playground for git, you can use bashrc provided in the repo on your workflow
 
 
