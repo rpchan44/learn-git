@@ -3,6 +3,7 @@
 # ================================
 
 # --- Git Basics ---
+alias gbn='gnew'
 alias gbs='echo Branch Status; git status'
 alias ga='echo Staging files; git add'
 alias gau='echo Unstaging files; git reset HEAD'
@@ -18,6 +19,7 @@ alias gd='echo Diff unstaged changes; git diff'
 alias gds='echo Diff staged changes; git diff --staged'
 
 # --- Branch Management ---
+alias gcomp="gacp"
 alias gman='gbmanage'
 alias gpf='echo Push your local to remote (no matter what); pushforce'
 alias gsf='echo Pull your remote branch to your local (no matter what); syncforce'
@@ -273,6 +275,44 @@ gbmanage() {
             ;;
     esac
 }
+# Create a new git branch with an optional prefix (default: feature)
+gnew() {
+    local prefix name branch override=0
+
+    # Parse -o option
+    if [ "$1" = "-o" ]; then
+        override=1
+        shift
+    fi
+
+    if [ $# -eq 1 ]; then
+        if [ $override -eq 1 ]; then
+            branch=$1
+        else
+            prefix="feat"
+            name=$1
+            branch="${prefix}/${name}"
+        fi
+    elif [ $# -eq 2 ]; then
+        if [ $override -eq 1 ]; then
+            branch=$1  # when using -o, treat first argument as full branch name
+        else
+            prefix=$1
+            name=$2
+            branch="${prefix}/${name}"
+        fi
+    else
+        echo "Usage: gnew [-o] [prefix] <branch-name>"
+        echo "Examples:"
+        echo "  gnew HELP-123         # -> feat/HELP-123"
+        echo "  gnew bugfix HELP-123  # -> bugfix/HELP-123"
+        echo "  gnew -o HELP-123      # -> HELP-123 (no prefix)"
+        return 1
+    fi
+
+    echo "Creating and switching to branch: $branch"
+    git checkout -b "$branch"
+}
 
 # ================================
 # 🛠 Branch Checkout Helpers
@@ -312,6 +352,44 @@ gco() {
         git checkout "$branch" || return 1
     fi
 }
+
+gacp() {
+    # Get current branch
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+    if [ -z "$branch" ]; then
+        echo "❌ Not on a branch"
+        return 1
+    fi
+
+    # Extract prefix and ticket (split at "/")
+    type=$(echo "$branch" | cut -d/ -f1)
+    ticket=$(echo "$branch" | cut -d/ -f2-)
+
+    # Fallbacks
+    [ -z "$type" ] && type="chore"
+    [ -z "$ticket" ] && ticket="$branch"
+
+    # User message
+    local msg=$*
+    if [ -z "$msg" ]; then
+        echo "Usage: gcomp <commit-message>"
+        echo "Example: gcomp \"My Commit Message\""
+        return 1
+    fi
+
+    # Final commit message
+    commit_msg="${type}: ${ticket} - ${msg}"
+
+    echo "📦 Adding all files..."
+    git add .
+
+    echo "📝 Committing: $commit_msg"
+    git commit -m "$commit_msg"
+
+    echo "⬆️  Pushing branch: $branch"
+    git push -u origin "$branch"
+}
+
 
 gcb() {
     if command -v fzf &>/dev/null; then
@@ -439,7 +517,8 @@ ghelp() {
 githelp() {
     echo -e "\n\e[1;32m🌱 Git Helper Commands\e[0m\n"
 
-    echo -e "\e[1;32m[ Status / Stage / Commit / Push ]\e[0m"
+    echo -e "\e[1;32m[ Create / Status / Stage / Commit / Push ]\e[0m"
+    echo -e "  \e[1;36mgbn\e[0m      → Create new branch with optional prefix (default: feat)"
     echo -e "  \e[1;36mgbs\e[0m      → Branch Status"
     echo -e "  \e[1;36mga\e[0m       → Stage files"
     echo -e "  \e[1;36mgau\e[0m      → Unstage files"
@@ -458,6 +537,7 @@ githelp() {
 
     echo -e "\n\e[1;32m[ Branch Management ]\e[0m"
     echo -e "  \e[1;36mgman\e[0m     → Branch Management"
+    echo -e "  \e[1;36mgcomp\e[0m    → Stage + Commit + Push (All-in-One)"
     echo -e "  \e[1;36mgco\e[0m      → Checkout branch (with -p perform git pull and return to previous branch)"
     echo -e "  \e[1;36mgcb\e[0m      → Interactive checkout"
     echo -e "  \e[1;36mpushforce\e[0m → Force push local branch to remote (overwrites remote)"
