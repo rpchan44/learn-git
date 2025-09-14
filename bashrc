@@ -18,11 +18,7 @@ alias gd='echo Diff unstaged changes; git diff'
 alias gds='echo Diff staged changes; git diff --staged'
 
 # --- Branch Management ---
-alias gbdl='echo Deleting branch locally; git branch -d'
-alias gbdr='echo Deleting branch remotely; git push origin --delete'
-alias gbll='echo Listing local branches; git branch'
-alias gblr='echo Listing remote branches; git branch -r'
-alias gbrl='echo Renaming branch locally; git branch -m'
+alias gman='gbmanage'
 alias gpf='echo Push your local to remote (no matter what); pushforce'
 alias gsf='echo Pull your remote branch to your local (no matter what); syncforce'
 
@@ -162,6 +158,123 @@ BLUE="\[\e[1;34m\]"
 RESET="\[\e[0m\]"
 
 export PS1="$GREEN\u@\h $BLUE\w $YELLOW\$(parse_git_status)$RESET ➜ "
+gbmanage() {
+    local action=$1 target=$2 branch=$3 newname=$4
+    local RED="\033[0;31m" GREEN="\033[0;32m" YELLOW="\033[1;33m" RESET="\033[0m"
+
+    if [[ -z "$action" ]]; then
+        echo -e "Usage:"
+        echo -e "  gman list local"
+        echo -e "  gman list remote"
+        echo -e "  gman delete local <branch>"
+        echo -e "  gman delete remote <branch>"
+        echo -e "  gman rename local <old> <new>"
+        echo -e "  gman rename remote <old> <new>"
+        return 1
+    fi
+
+    # Validate repo
+    if ! git rev-parse --git-dir >/dev/null 2>&1; then
+        echo -e "${RED}Not inside a Git repository.${RESET}"
+        return 1
+    fi
+
+    case "$action" in
+        list)
+            case "$target" in
+                local)
+                    echo -e "${GREEN}📂 Local branches:${RESET}"
+                    git branch --format="%(refname:short)" | sed "s/^/  - /"
+                    ;;
+                remote)
+                    echo -e "${GREEN}🌐 Remote branches:${RESET}"
+                    git for-each-ref --format="%(refname:short)" refs/remotes/ \
+                        | sed "s/^/  - /"
+                    ;;
+                *)
+                    echo -e "${RED}Invalid target. Use 'local' or 'remote'.${RESET}"
+                    return 1
+                    ;;
+            esac
+            ;;
+        delete)
+            if [[ "$target" == "local" ]]; then
+                if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+                    echo -e "${RED}Local branch '$branch' does not exist.${RESET}"
+                    return 1
+                fi
+                if [[ "$(git rev-parse --abbrev-ref HEAD)" == "$branch" ]]; then
+                    echo -e "${RED}You cannot delete the branch you are currently on.${RESET}"
+                    return 1
+                fi
+                echo -e "${YELLOW}Delete local branch '$branch'? (y/N)${RESET}"
+                read -r ans
+                [[ "$ans" =~ ^[Yy]$ ]] && git branch -D "$branch" \
+                    && echo -e "${GREEN}Deleted local branch '$branch'.${RESET}"
+
+            elif [[ "$target" == "remote" ]]; then
+                local remote=$(git remote | head -n1)
+                if [[ -z "$remote" ]]; then
+                    echo -e "${RED}No remote configured.${RESET}"
+                    return 1
+                fi
+                if ! git ls-remote --heads "$remote" "$branch" | grep -q .; then
+                    echo -e "${RED}Remote branch '$branch' not found on '$remote'.${RESET}"
+                    return 1
+                fi
+                echo -e "${YELLOW}Delete remote branch '$branch' from '$remote'? (y/N)${RESET}"
+                read -r ans
+                [[ "$ans" =~ ^[Yy]$ ]] && git push "$remote" --delete "$branch" \
+                    && echo -e "${GREEN}Deleted remote branch '$branch' from '$remote'.${RESET}"
+            else
+                echo -e "${RED}Invalid target. Use 'local' or 'remote'.${RESET}"
+                return 1
+            fi
+            ;;
+        rename)
+            if [[ -z "$newname" ]]; then
+                echo -e "${RED}Missing new branch name.${RESET}"
+                return 1
+            fi
+            if [[ "$target" == "local" ]]; then
+                if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+                    echo -e "${RED}Local branch '$branch' does not exist.${RESET}"
+                    return 1
+                fi
+                echo -e "${YELLOW}Rename local branch '$branch' → '$newname'? (y/N)${RESET}"
+                read -r ans
+                if [[ "$ans" =~ ^[Yy]$ ]]; then
+                    git branch -m "$branch" "$newname"
+                    echo -e "${GREEN}Renamed local branch '$branch' → '$newname'.${RESET}"
+                fi
+            elif [[ "$target" == "remote" ]]; then
+                local remote=$(git remote | head -n1)
+                if [[ -z "$remote" ]]; then
+                    echo -e "${RED}No remote configured.${RESET}"
+                    return 1
+                fi
+                if ! git ls-remote --heads "$remote" "$branch" | grep -q .; then
+                    echo -e "${RED}Remote branch '$branch' not found on '$remote'.${RESET}"
+                    return 1
+                fi
+                echo -e "${YELLOW}Rename remote branch '$branch' → '$newname' on '$remote'? (y/N)${RESET}"
+                read -r ans
+                if [[ "$ans" =~ ^[Yy]$ ]]; then
+                    git push "$remote" "$branch:$newname"
+                    git push "$remote" --delete "$branch"
+                    echo -e "${GREEN}Renamed remote branch '$branch' → '$newname' on '$remote'.${RESET}"
+                fi
+            else
+                echo -e "${RED}Invalid target. Use 'local' or 'remote'.${RESET}"
+                return 1
+            fi
+            ;;
+        *)
+            echo -e "${RED}Invalid action. Use 'list', 'delete' or 'rename'.${RESET}"
+            return 1
+            ;;
+    esac
+}
 
 # ================================
 # 🛠 Branch Checkout Helpers
@@ -346,15 +459,11 @@ githelp() {
     echo -e "  \e[1;36mgds\e[0m      → Diff staged changes"
 
     echo -e "\n\e[1;32m[ Branch Management ]\e[0m"
-    echo -e "  \e[1;36mgbdl\e[0m     → Delete branch locally"
-    echo -e "  \e[1;36mgbdr\e[0m     → Delete branch remotely"
-    echo -e "  \e[1;36mgbll\e[0m     → List local branches"
-    echo -e "  \e[1;36mgblr\e[0m     → List remote branches"
-    echo -e "  \e[1;36mgbrl\e[0m     → Rename branch locally"
+    echo -e "  \e[1;36mgman\e[0m     → Branch Management"
     echo -e "  \e[1;36mgco\e[0m      → Checkout branch (with -p perform git pull and return to previous branch)"
     echo -e "  \e[1;36mgcb\e[0m      → Interactive checkout"
-    echo -e "  \e[1;36mpushforce\e[0m → Force push local branch to remote (⚠️ overwrites remote)"
-    echo -e "  \e[1;36msyncforce\e[0m → Hard-sync local branch to match remote (⚠️ overwrites local)"
+    echo -e "  \e[1;36mpushforce\e[0m → Force push local branch to remote (overwrites remote)"
+    echo -e "  \e[1;36msyncforce\e[0m → Hard-sync local branch to match remote (overwrites local)"
 
 
     echo -e "\n\e[1;32m[ Rebasing / Resetting ]\e[0m"
@@ -417,11 +526,50 @@ _git_branch_smart_completion() {
     COMPREPLY=( $(compgen -W "${all_branches}" -- "$cur") )
 }
 
+# --- Completion for gbmanage ---
+_gbmanage_complete() {
+    local cur prev words cword
+    _get_comp_words_by_ref -n : cur prev words cword
+
+    local actions="delete rename"
+    local targets="local remote"
+
+    case "${words[1]}" in
+        delete|rename)
+            case "${words[2]}" in
+                local)
+                    if [[ $cword -eq 3 ]]; then
+                        COMPREPLY=( $(compgen -W "$(git for-each-ref --format='%(refname:short)' refs/heads/)" -- "$cur") )
+                    else
+                        COMPREPLY=( $(compgen -W "$targets" -- "$cur") )
+                    fi
+                    ;;
+                remote)
+                    if [[ $cword -eq 3 ]]; then
+                        local remote=$(git remote | head -n1)
+                        if [[ -n "$remote" ]]; then
+                            # use refs/remotes/ instead of ls-remote for faster completion
+                            COMPREPLY=( $(compgen -W "$(git for-each-ref --format='%(refname:short)' refs/remotes/${remote}/ | sed "s|^${remote}/||")" -- "$cur") )
+                        fi
+                    else
+                        COMPREPLY=( $(compgen -W "$targets" -- "$cur") )
+                    fi
+                    ;;
+                *)
+                    COMPREPLY=( $(compgen -W "$targets" -- "$cur") )
+                    ;;
+            esac
+            ;;
+        *)
+            COMPREPLY=( $(compgen -W "$actions" -- "$cur") )
+            ;;
+    esac
+}
+
 # Attach smart branch completion
 complete -F _git_branch_smart_completion gco
 complete -F _git_branch_smart_completion gcb
-complete -F _git_branch_smart_completion gbdl
-complete -F _git_branch_smart_completion gbrl
+complete -F _gbmanage_complete gman
 
 # --- Remote name completion ---
 _git_remote_completion() {
