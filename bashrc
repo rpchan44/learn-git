@@ -8,7 +8,6 @@ alias gbs='echo Branch Status; git status'
 alias ga='echo Staging files; git add'
 alias gau='echo Unstaging files; git reset HEAD'
 alias gc='git commit -m'  # commit with branch prefix
-alias gcp='gc_branch_prefix'
 alias gp='echo Pushing branch to remote; git push'
 
 # --- Logs & Diff ---
@@ -522,10 +521,7 @@ githelp() {
     echo -e "  \e[1;36mgbs\e[0m      → Branch Status"
     echo -e "  \e[1;36mga\e[0m       → Stage files"
     echo -e "  \e[1;36mgau\e[0m      → Unstage files"
-    echo -e "  \e[1;36mgc\e[0m       → Commit with plain message (no branch prefix)"
-    echo -e "  \e[1;36mgcp\e[0m      → Commit with branch-aware prefix (auto-prefixes branch type/ticket)"
-    echo -e "                  e.g., branch 'feat/HELP-123', usage: gcp \"Fix login bug\" → commit message: feat: HELP-123 - Fix login bug"
-
+    echo -e "  \e[1;36mgc\e[0m       → Commit"
     echo -e "  \e[1;36mgp\e[0m       → Push branch to remote"
 
     echo -e "\n\e[1;32m[ Logs / Diffs / Show ]\e[0m"
@@ -670,18 +666,6 @@ _git_stash_completion() {
 complete -F _git_stash_completion gstasha
 complete -F _git_stash_completion gstashp
 complete -F _git_stash_completion gstashd
-
-# --- Commit message completion (gcp) ---
-_git_commit_message_completion() {
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
-    local prefix=""
-    if [[ "$branch" =~ ^([^/]+)/(.+)$ ]]; then
-        prefix="${BASH_REMATCH[2]}"
-    fi
-    COMPREPLY=( $(compgen -W "$prefix" -- "$cur") )
-}
-complete -F _git_commit_message_completion gcp
 
 # --- GitHub repo completion (ghcreate) ---
 _git_folder_completion() {
