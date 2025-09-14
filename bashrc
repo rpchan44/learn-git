@@ -127,29 +127,27 @@ remoteinfo() {
 # 🎨 Enhanced Git-Aware Prompt
 # ================================
 parse_git_status() {
-    git rev-parse --is-inside-work-tree &>/dev/null || return
-    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
+    [ -z "$branch" ] && return
+
     staged=$(git diff --cached --name-only 2>/dev/null | wc -l)
     unstaged=$(git diff --name-only 2>/dev/null | wc -l)
-    untracked=$(git ls-files --others --exclude-standard | wc -l)
-
+    untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l)
     dirty=""
-    [ "$staged" -gt 0 ] && dirty+="●"
-    [ "$unstaged" -gt 0 ] && dirty+="✗"
-    [ "$untracked" -gt 0 ] && dirty+="..."
+
+    [ "${staged:-0}" -gt 0 ] && dirty+="●"
+    [ "${unstaged:-0}" -gt 0 ] && dirty+="✗"
+    [ "${untracked:-0}" -gt 0 ] && dirty+="…"
     [ -z "$dirty" ] && dirty="✔"
 
-    ahead=$(git rev-list --count --left-only @{u}...HEAD 2>/dev/null)
-    behind=$(git rev-list --count --right-only @{u}...HEAD 2>/dev/null)
+    ahead=$(git rev-list --count --left-only @{u}...HEAD 2>/dev/null || echo 0)
+    behind=$(git rev-list --count --right-only @{u}...HEAD 2>/dev/null || echo 0)
     ab=""
-    [ "$ahead" -gt 0 ] && ab+="↑$ahead"
-    [ "$behind" -gt 0 ] && ab+="↓$behind"
-    [ -n "$ab" ] && ab=" $ab"
 
-    tag=$(git describe --tags --exact-match 2>/dev/null)
-    [ -n "$tag" ] && tag=" tag:$tag"
+    [ "${ahead:-0}" -gt 0 ] && ab+="↑$ahead"
+    [ "${behind:-0}" -gt 0 ] && ab+="↓$behind"
 
-    echo " $branch$ab $dirty$tag"
+    echo " $branch $dirty $ab"
 }
 
 GREEN="\[\e[1;32m\]"
@@ -613,15 +611,3 @@ _git_folder_completion() {
     COMPREPLY=( $(compgen -W "${dirs}" -- "$cur") )
 }
 complete -F _git_folder_completion ghcreate
-
-# ================================
-# ✅ Features
-# - gco/gcb: handles -p option, local branches first, remote branches next
-# - Branch deletion/rename/list: smart branch completion
-# - Remote commands: setremote/pushup/gbdr
-# - Stash commands: gstasha/gstashp/gstashd
-# - Commit messages: gcp suggests ticket prefix
-# - GitHub repo creation: ghcreate suggests local folders
-# ================================
-
-
